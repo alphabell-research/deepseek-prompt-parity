@@ -19,6 +19,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--base-url')
     parser.add_argument('--artifacts', type=Path)
+    parser.add_argument('--bundled-chromium', action='store_true', help='Use the Chromium version installed by Playwright, matching CI.')
     args = parser.parse_args()
     server = None
     if args.base_url:
@@ -34,7 +35,7 @@ def main():
     try:
         with sync_playwright() as p:
             options = {'headless': True, 'args': ['--no-sandbox']}
-            if Path('/usr/bin/chromium').is_file():
+            if not args.bundled_chromium and Path('/usr/bin/chromium').is_file():
                 options['executable_path'] = '/usr/bin/chromium'
             browser = p.chromium.launch(**options)
             try:
@@ -117,7 +118,9 @@ def main():
                 assert page.locator('dialog textarea').input_value() == BY_ID['raw_json_string_arguments']['reference']['output']
                 assert page.locator('dialog textarea').evaluate('(el)=>el.selectionEnd-el.selectionStart') == len(BY_ID['raw_json_string_arguments']['reference']['output'])
                 page.locator('dialog button').click()
-                assert page.locator('dialog').count() == 0
+                # The close event removes the node after dialog.close(). Wait
+                # for that lifecycle event, then require complete DOM removal.
+                expect(page.locator('dialog')).to_have_count(0)
                 checks.append('exact selectable clipboard denial fallback')
 
                 page.locator('#show-whitespace').uncheck()
