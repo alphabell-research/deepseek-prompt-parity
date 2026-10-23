@@ -1,0 +1,358 @@
+{
+  "schema_version": 1,
+  "title": "DeepSeek Prompt Parity",
+  "scope": "Eight saved synthetic serialization probes. Inspect inputs, prompt text and input-contract differences. No model inference or arbitrary-input validation.",
+  "sources": [
+    {
+      "id": "reference",
+      "label": "1017 Python reference",
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/raw/1bae0e1088993b9b82de08f59de5be5a34e42170/encoding/encoding.py",
+      "sha256": "13231c592e958fb39e2af6001dae69d90e7a36b265702b9b390236fb387599e2",
+      "revision": "1bae0e1088993b9b82de08f59de5be5a34e42170"
+    },
+    {
+      "id": "base_reference",
+      "label": "Base Python reference",
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/raw/314113f8a7dadb388215396ba5fbee2c610a04d6/encoding/encoding.py",
+      "sha256": "13231c592e958fb39e2af6001dae69d90e7a36b265702b9b390236fb387599e2",
+      "revision": "314113f8a7dadb388215396ba5fbee2c610a04d6"
+    },
+    {
+      "id": "base_template",
+      "label": "Base Jinja artifact",
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/raw/314113f8a7dadb388215396ba5fbee2c610a04d6/chat_template.jinja",
+      "sha256": "d959d804d5101b79a49b6ff1bf3c54cd5affa9a5a78c503d925f3090040b31c3",
+      "revision": "314113f8a7dadb388215396ba5fbee2c610a04d6"
+    }
+  ],
+  "encoder_bytes_identical": true,
+  "rendering_environment": {
+    "jinja2": "3.1.6",
+    "sandbox": "ImmutableSandboxedEnvironment",
+    "trim_blocks": true,
+    "lstrip_blocks": true,
+    "tojson": "Transformers-style JSON serialization"
+  },
+  "cases": [
+    {
+      "id": "basic_chat",
+      "title": "Simple chat",
+      "summary": "Chat mode produces the same serialized prompt in both renderers.",
+      "normalization": {
+        "applied": false,
+        "explanation": "No tool arguments are present. The history is passed through unchanged.",
+        "related_case_id": null
+      },
+      "history": [
+        {
+          "role": "user",
+          "content": "question"
+        }
+      ],
+      "config": {
+        "thinking_mode": "chat",
+        "reasoning_effort": null,
+        "add_generation_prompt": true
+      },
+      "reference": {
+        "output": "<｜begin▁of▁sentence｜><｜User｜>question<｜Assistant｜></think>",
+        "error": null
+      },
+      "template": {
+        "output": "<｜begin▁of▁sentence｜><｜User｜>question<｜Assistant｜></think>",
+        "error": null
+      },
+      "expected_match": true,
+      "observed_match": true,
+      "diff": ""
+    },
+    {
+      "id": "numeric_effort_42",
+      "title": "Reasoning effort: 42",
+      "summary": "An explicit numeric effort of 42 produces matching prompts.",
+      "normalization": {
+        "applied": false,
+        "explanation": "The integer 42 is passed directly to both renderers.",
+        "related_case_id": null
+      },
+      "history": [
+        {
+          "role": "user",
+          "content": "question"
+        }
+      ],
+      "config": {
+        "thinking_mode": "thinking",
+        "reasoning_effort": 42,
+        "add_generation_prompt": true
+      },
+      "reference": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 42 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>",
+        "error": null
+      },
+      "template": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 42 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>",
+        "error": null
+      },
+      "expected_match": true,
+      "observed_match": true,
+      "diff": ""
+    },
+    {
+      "id": "numeric_effort_62",
+      "title": "Reasoning effort: 62",
+      "summary": "The integer 62 matches, unlike the string alias in the saved medium case.",
+      "normalization": {
+        "applied": false,
+        "explanation": "The integer 62 is supplied explicitly. The harness does not translate an alias.",
+        "related_case_id": "medium_alias"
+      },
+      "history": [
+        {
+          "role": "user",
+          "content": "question"
+        }
+      ],
+      "config": {
+        "thinking_mode": "thinking",
+        "reasoning_effort": 62,
+        "add_generation_prompt": true
+      },
+      "reference": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 62 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>",
+        "error": null
+      },
+      "template": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 62 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>",
+        "error": null
+      },
+      "expected_match": true,
+      "observed_match": true,
+      "diff": ""
+    },
+    {
+      "id": "mid_conversation_system",
+      "title": "A system message after a turn",
+      "summary": "Both renderers preserve the later system message and append the assistant generation header.",
+      "normalization": {
+        "applied": false,
+        "explanation": "The same four-message history is passed to both renderers without conversion.",
+        "related_case_id": null
+      },
+      "history": [
+        {
+          "role": "system",
+          "content": "sys"
+        },
+        {
+          "role": "user",
+          "content": "q1"
+        },
+        {
+          "role": "assistant",
+          "content": "a1",
+          "reasoning_content": "r1"
+        },
+        {
+          "role": "system",
+          "content": "mid sys"
+        }
+      ],
+      "config": {
+        "thinking_mode": "thinking",
+        "reasoning_effort": 88,
+        "add_generation_prompt": true
+      },
+      "reference": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 88 (range 1-100, the higher the value, the more thorough the reasoning)\n\nsys<｜User｜>q1<｜Assistant｜></think>a1<｜end▁of▁sentence｜><｜System｜>mid sys<｜Assistant｜><think>",
+        "error": null
+      },
+      "template": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 88 (range 1-100, the higher the value, the more thorough the reasoning)\n\nsys<｜User｜>q1<｜Assistant｜></think>a1<｜end▁of▁sentence｜><｜System｜>mid sys<｜Assistant｜><think>",
+        "error": null
+      },
+      "expected_match": true,
+      "observed_match": true,
+      "diff": ""
+    },
+    {
+      "id": "object_arguments",
+      "title": "Tool arguments as an object",
+      "summary": "Object arguments preserve separate string and numeric DSML parameters.",
+      "normalization": {
+        "applied": false,
+        "explanation": "Arguments are already an object, matching the Transformers template input contract.",
+        "related_case_id": "raw_json_string_arguments"
+      },
+      "history": [
+        {
+          "role": "user",
+          "content": "question"
+        },
+        {
+          "role": "assistant",
+          "reasoning_content": "reason",
+          "content": "summary",
+          "tool_calls": [
+            {
+              "type": "function",
+              "function": {
+                "name": "lookup",
+                "arguments": {
+                  "query": "value",
+                  "limit": 2
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "config": {
+        "thinking_mode": "thinking",
+        "reasoning_effort": null,
+        "add_generation_prompt": true
+      },
+      "reference": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>reason</think>summary\n\n<｜DSML｜ calls>\n<｜DSML｜ invoke name=\"lookup\">\n<｜DSML｜ parameter name=\"query\" string=\"true\">value</｜DSML｜ parameter>\n<｜DSML｜ parameter name=\"limit\" string=\"false\">2</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls><｜end▁of▁sentence｜>",
+        "error": null
+      },
+      "template": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>reason</think>summary\n\n<｜DSML｜ calls>\n<｜DSML｜ invoke name=\"lookup\">\n<｜DSML｜ parameter name=\"query\" string=\"true\">value</｜DSML｜ parameter>\n<｜DSML｜ parameter name=\"limit\" string=\"false\">2</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls><｜end▁of▁sentence｜>",
+        "error": null
+      },
+      "expected_match": true,
+      "observed_match": true,
+      "diff": ""
+    },
+    {
+      "id": "raw_json_string_arguments",
+      "title": "Tool arguments as a JSON string",
+      "summary": "The template emits one arguments parameter. The Python reference decodes the string into query and limit.",
+      "normalization": {
+        "applied": false,
+        "explanation": "The OpenAI-style JSON string reaches the template directly. A serving adapter may already convert it before rendering.",
+        "related_case_id": "normalized_json_string_arguments"
+      },
+      "history": [
+        {
+          "role": "user",
+          "content": "question"
+        },
+        {
+          "role": "assistant",
+          "reasoning_content": "reason",
+          "content": "summary",
+          "tool_calls": [
+            {
+              "type": "function",
+              "function": {
+                "name": "lookup",
+                "arguments": "{\"query\":\"value\",\"limit\":2}"
+              }
+            }
+          ]
+        }
+      ],
+      "config": {
+        "thinking_mode": "thinking",
+        "reasoning_effort": null,
+        "add_generation_prompt": true
+      },
+      "reference": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>reason</think>summary\n\n<｜DSML｜ calls>\n<｜DSML｜ invoke name=\"lookup\">\n<｜DSML｜ parameter name=\"query\" string=\"true\">value</｜DSML｜ parameter>\n<｜DSML｜ parameter name=\"limit\" string=\"false\">2</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls><｜end▁of▁sentence｜>",
+        "error": null
+      },
+      "template": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>reason</think>summary\n\n<｜DSML｜ calls>\n<｜DSML｜ invoke name=\"lookup\">\n<｜DSML｜ parameter name=\"arguments\" string=\"true\">{\"query\":\"value\",\"limit\":2}</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls><｜end▁of▁sentence｜>",
+        "error": null
+      },
+      "expected_match": false,
+      "observed_match": false,
+      "diff": "--- 1017-reference\n+++ base-jinja\n@@ -4,7 +4,6 @@\n \n <｜DSML｜ calls>\n <｜DSML｜ invoke name=\"lookup\">\n-<｜DSML｜ parameter name=\"query\" string=\"true\">value</｜DSML｜ parameter>\n-<｜DSML｜ parameter name=\"limit\" string=\"false\">2</｜DSML｜ parameter>\n+<｜DSML｜ parameter name=\"arguments\" string=\"true\">{\"query\":\"value\",\"limit\":2}</｜DSML｜ parameter>\n </｜DSML｜ invoke>\n </｜DSML｜ calls><｜end▁of▁sentence｜>"
+    },
+    {
+      "id": "normalized_json_string_arguments",
+      "title": "The same history, normalized",
+      "summary": "Decoding the argument string once into an object restores exact prompt parity in this probe.",
+      "normalization": {
+        "applied": true,
+        "explanation": "normalize_tool_arguments() deep-copies the raw-string history and decodes function.arguments once into an object. Unrelated fields are preserved.",
+        "related_case_id": "raw_json_string_arguments"
+      },
+      "history": [
+        {
+          "role": "user",
+          "content": "question"
+        },
+        {
+          "role": "assistant",
+          "reasoning_content": "reason",
+          "content": "summary",
+          "tool_calls": [
+            {
+              "type": "function",
+              "function": {
+                "name": "lookup",
+                "arguments": {
+                  "query": "value",
+                  "limit": 2
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "config": {
+        "thinking_mode": "thinking",
+        "reasoning_effort": null,
+        "add_generation_prompt": true
+      },
+      "reference": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>reason</think>summary\n\n<｜DSML｜ calls>\n<｜DSML｜ invoke name=\"lookup\">\n<｜DSML｜ parameter name=\"query\" string=\"true\">value</｜DSML｜ parameter>\n<｜DSML｜ parameter name=\"limit\" string=\"false\">2</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls><｜end▁of▁sentence｜>",
+        "error": null
+      },
+      "template": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>reason</think>summary\n\n<｜DSML｜ calls>\n<｜DSML｜ invoke name=\"lookup\">\n<｜DSML｜ parameter name=\"query\" string=\"true\">value</｜DSML｜ parameter>\n<｜DSML｜ parameter name=\"limit\" string=\"false\">2</｜DSML｜ parameter>\n</｜DSML｜ invoke>\n</｜DSML｜ calls><｜end▁of▁sentence｜>",
+        "error": null
+      },
+      "expected_match": true,
+      "observed_match": true,
+      "diff": ""
+    },
+    {
+      "id": "medium_alias",
+      "title": "The \"medium\" alias",
+      "summary": "The Jinja artifact maps medium to 62. The Python reference rejects this alias.",
+      "normalization": {
+        "applied": false,
+        "explanation": "The string medium is passed unchanged. Compare the explicit integer 62 case for the matching control.",
+        "related_case_id": "numeric_effort_62"
+      },
+      "history": [
+        {
+          "role": "user",
+          "content": "question"
+        }
+      ],
+      "config": {
+        "thinking_mode": "thinking",
+        "reasoning_effort": "medium",
+        "add_generation_prompt": true
+      },
+      "reference": {
+        "output": null,
+        "error": {
+          "type": "AssertionError",
+          "message": "Invalid reasoning effort for deepseek_v41: medium, should be int within [1,100] or ['low', 'high', 'max']"
+        }
+      },
+      "template": {
+        "output": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 62 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>question<｜Assistant｜><think>",
+        "error": null
+      },
+      "expected_match": false,
+      "observed_match": false,
+      "diff": ""
+    }
+  ]
+}
