@@ -9,6 +9,7 @@ import difflib
 import hashlib
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import socket
@@ -72,9 +73,45 @@ def deny_network():
 def normalize_tool_arguments(messages: list) -> list:
     """Convert OpenAI JSON-string tool arguments to the template's object contract.
 
-    Decode exactly once. Reject invalid JSON and non-object values. Preserve the
-    caller's original history and every unrelated field.
+    Decode exactly once. Reject ambiguous keys, non-finite numbers and non-JSON
+    values. Preserve the caller's history, unrelated fields and valid integers.
     """
+    def reject_constant(value):
+        raise ValueError("Non-finite JSON constant in tool arguments: " + value)
+
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("Duplicate tool argument key: " + key)
+            result[key] = value
+        return result
+
+    def validate_value(value, active):
+        if value is None or isinstance(value, (str, bool, int)):
+            return
+        if isinstance(value, float):
+            if not math.isfinite(value):
+                raise ValueError("Tool arguments contain a non-finite number")
+            return
+        if not isinstance(value, (dict, list)):
+            raise ValueError("Tool arguments must contain only JSON-compatible values")
+        identity = id(value)
+        if identity in active:
+            raise ValueError("Tool arguments contain a cycle")
+        active.add(identity)
+        try:
+            if isinstance(value, dict):
+                if any(not isinstance(key, str) for key in value):
+                    raise ValueError("Tool argument object keys must be strings")
+                children = value.values()
+            else:
+                children = value
+            for child in children:
+                validate_value(child, active)
+        finally:
+            active.remove(identity)
+
     normalized = copy.deepcopy(messages)
     for message in normalized:
         if message.get("role") != "assistant":
@@ -85,9 +122,10 @@ def normalize_tool_arguments(messages: list) -> list:
                 continue
             arguments = function["arguments"]
             if isinstance(arguments, str):
-                arguments = json.loads(arguments)
+                arguments = json.loads(arguments, parse_constant=reject_constant, object_pairs_hook=unique_object)
             if not isinstance(arguments, dict):
                 raise ValueError("Tool arguments must decode to a JSON object")
+            validate_value(arguments, set())
             function["arguments"] = arguments
     return normalized
 
@@ -144,8 +182,10 @@ def compare_case(reference, template, case: dict) -> dict:
             result[name] = {"text": render()}
         except Exception as error:
             result[name] = {"exception": type(error).__name__, "message": str(error)}
-    result["exact_match"] = result["reference"] == result["base_jinja"]
-    result["expectation_met"] = result["exact_match"] == case["expect_match"] and (not case["expect_match"] or "text" in result["reference"] and "text" in result["base_jinja"])
+    reference_rendered = "text" in result["reference"]
+    template_rendered = "text" in result["base_jinja"]
+    result["exact_match"] = reference_rendered and template_rendered and result["reference"]["text"] == result["base_jinja"]["text"]
+    result["expectation_met"] = result["exact_match"] == case["expect_match"] and (reference_rendered or template_rendered)
     if "text" in result["reference"] and "text" in result["base_jinja"]:
         result["diff"] = "\n".join(difflib.unified_diff(result["reference"]["text"].splitlines(), result["base_jinja"]["text"].splitlines(), fromfile="1017-reference", tofile="base-jinja", lineterm=""))
     return result

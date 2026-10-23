@@ -35,6 +35,37 @@ def test_non_object_or_invalid_json_arguments_are_rejected(arguments):
         parity.normalize_tool_arguments(history(arguments))
 
 
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity", "1e400", "-1e400"])
+def test_non_finite_json_constants_and_overflow_are_rejected(value):
+    with pytest.raises(ValueError, match="[Nn]on-finite"):
+        parity.normalize_tool_arguments(history('{"nested":[{"number":' + value + '}]}'))
+
+
+@pytest.mark.parametrize("arguments", ['{"query":"first","query":"second"}', '{"nested":{"limit":1,"limit":2}}'])
+def test_duplicate_keys_are_rejected_at_any_depth(arguments):
+    with pytest.raises(ValueError, match="Duplicate tool argument key"):
+        parity.normalize_tool_arguments(history(arguments))
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_non_finite_values_in_already_parsed_objects_are_rejected(value):
+    with pytest.raises(ValueError, match="non-finite"):
+        parity.normalize_tool_arguments(history({"nested": [{"number": value}]}))
+
+
+def test_cycles_in_parsed_objects_are_rejected():
+    arguments = {"value": []}
+    arguments["value"].append(arguments)
+    with pytest.raises(ValueError, match="cycle"):
+        parity.normalize_tool_arguments(history(arguments))
+
+
+@pytest.mark.parametrize("arguments", [{"not_json": {1, 2}}, {1: "not a string key"}])
+def test_non_json_parsed_values_are_rejected(arguments):
+    with pytest.raises(ValueError, match="JSON-compatible|keys must be strings"):
+        parity.normalize_tool_arguments(history(arguments))
+
+
 def test_existing_objects_are_copied_without_coercion():
     messages = history({"n": 2, "s": "2"})
     normalized = parity.normalize_tool_arguments(messages)
@@ -108,13 +139,16 @@ def test_socket_operations_are_blocked_and_restored():
     assert socket.socket is original
 
 
-def test_equal_errors_do_not_count_as_successful_prompt_parity():
+@pytest.mark.parametrize("expected_match", [True, False])
+def test_equal_errors_do_not_count_as_successful_prompt_parity(expected_match):
     class BrokenReference:
         def encode_messages(self, *args, **kwargs):
             raise ValueError("both fail")
     class BrokenTemplate:
         def render(self, *args, **kwargs):
             raise ValueError("both fail")
-    result = parity.compare_case(BrokenReference(), BrokenTemplate(), parity.fixture_cases()[0])
-    assert result["exact_match"] is True
+    case = parity.fixture_cases()[0]
+    case["expect_match"] = expected_match
+    result = parity.compare_case(BrokenReference(), BrokenTemplate(), case)
+    assert result["exact_match"] is False
     assert result["expectation_met"] is False
